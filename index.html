@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f6f4ef">
+<title>Photo Artelier</title>
+<style>
+:root{color:#25251f;background:#eae7e0;font:16px/1.45 system-ui,sans-serif;--paper:#f6f4ef;--line:#d8d4ca;--moss:#445333;--ink:#292923}
+*{box-sizing:border-box}body{margin:0}button{font:inherit;color:inherit;cursor:pointer}button:focus-visible{outline:3px solid #667951;outline-offset:3px}button:disabled{cursor:default;opacity:.6}h1,h2,h3,p{margin:0}
+.shell{max-width:484px;min-height:100vh;margin:auto;background:var(--paper);padding:28px 22px 26px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:25px}h1{font-size:32px;letter-spacing:-.055em;line-height:1.12}h2{font-size:23px;letter-spacing:-.035em}h3{font-size:17px}
+.icon,.back,.outline,.primary{min-height:44px;border-radius:9px;background:transparent;border:1px solid var(--line);padding:8px 13px}
+.icon{height:44px;width:44px;padding:0;font-size:23px}.back{margin-bottom:17px}.primary{border-color:var(--ink);background:var(--ink);color:#fff}
+.device{display:flex;align-items:center;gap:14px;padding:14px;background:#edeae2;border-radius:12px;margin-bottom:24px}.frame-icon{width:31px;height:23px;border:2px solid;border-radius:3px;flex:none}.device p,.muted{color:#57574d;font-size:14px}.online{color:var(--moss)}.online::before{content:"";display:inline-block;width:7px;height:7px;background:#6d814f;border-radius:50%;margin-right:7px}
+.heading{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}.album{display:grid;grid-template-columns:112px 1fr;align-items:center;gap:15px;padding:15px 0;border-bottom:1px solid var(--line)}.cover,.thumbnail{background-color:#e6e2d7;background-repeat:no-repeat;border-radius:9px;border:0;display:block;padding:0;overflow:hidden}.cover{aspect-ratio:1.15;width:100%}.album-name{display:block;text-align:left;border:0;background:none;padding:0 0 5px;font-weight:700;font-size:19px}.album .outline{margin-top:8px}.pill{display:inline-block;margin-top:8px;background:#e1e6d7;color:#344427;border-radius:20px;padding:5px 11px;font-size:14px;font-weight:650}
+.detail-head{margin-bottom:20px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.thumbnail{width:100%;aspect-ratio:1}.actions{position:sticky;bottom:0;display:flex;gap:8px;padding:16px 0 4px;background:var(--paper)}.actions>button{flex:1}
+.sync{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#edeae2}.sync p{margin-top:6px}.sync progress{width:100%;accent-color:var(--moss)}
+dialog{max-width:min(460px,calc(100% - 24px));width:100%;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:21px}dialog::backdrop{background:#1f211d80}dialog h2{margin-bottom:8px}dialog p{margin-bottom:10px}.large-photo{width:100%;aspect-ratio:1;margin:10px 0 15px;background-repeat:no-repeat;border-radius:9px}
+.notice{font-size:13px;color:#57574d;margin-top:25px;padding-top:13px;border-top:1px solid var(--line)}
+.form{display:grid;gap:10px}.form input{width:100%;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit}.form-actions{display:flex;gap:8px;flex-wrap:wrap}
+#app-status{padding:0 0 14px;color:#57574d;font-size:14px;overflow-wrap:anywhere}
+#photo-open{display:block;width:100%;max-height:65vh;object-fit:contain;margin:12px 0}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main class="shell">
+  <p id="app-status" role="status" aria-live="polite" hidden></p>
+  <section id="auth" hidden>
+    <header><h1>Photo Artelier</h1></header>
+    <form id="auth-form" class="form">
+      <label for="email">อีเมล</label><input id="email" type="email" autocomplete="email" required>
+      <label for="password">รหัสผ่าน</label><input id="password" type="password" autocomplete="current-password" required>
+      <div class="form-actions"><button type="submit" class="primary">ลงชื่อเข้าใช้</button><button type="button" id="signup" class="outline">สร้างบัญชี</button></div>
+    </form>
+  </section>
+  <section id="home" hidden>
+    <header><h1>Photo Artelier</h1><button class="icon" id="settings" aria-label="ตั้งค่า">⚙</button></header>
+    <section class="device" aria-label="สถานะกรอบรูป">
+      <span class="frame-icon" aria-hidden="true"></span>
+      <div><strong>Kano ห้องนั่งเล่น</strong><p>ยังไม่ได้จับคู่</p></div>
+    </section>
+    <div class="heading"><h2>อัลบั้ม</h2><button class="outline" id="new-album">สร้างอัลบั้ม</button></div>
+    <div id="albums"></div>
+  </section>
+  <section id="detail" hidden>
+    <button class="back" id="back">อัลบั้มทั้งหมด</button>
+    <div class="detail-head"><h1 id="album-title"></h1><p class="muted" id="album-count"></p></div>
+    <div class="grid" id="photos"></div>
+    
+    <div class="actions">
+      <button class="outline" id="add">เพิ่มรูป</button>
+      <button class="primary" disabled title="ต้องจับคู่ Kano ก่อน">เล่นบน Kano</button>
+    </div>
+  </section>
+</main>
+<input id="picker" type="file" accept="image/*" multiple hidden>
+<dialog id="preview"><h2>ดูรูป</h2><img id="photo-open" alt="รูปในอัลบั้ม"><button class="outline" id="close-photo">ปิด</button></dialog>
+<dialog id="device-dialog"><h2>ตั้งค่า</h2><p>ยังไม่ได้จับคู่ Kano</p><button class="outline" id="close-settings">ปิด</button> <button class="outline" id="signout">ออกจากบัญชี</button></dialog>
+<dialog id="album-dialog">
+  <h2>สร้างอัลบั้ม</h2>
+  <form id="album-form" class="form">
+    <label for="album-name">ชื่ออัลบั้ม</label><input id="album-name" required maxlength="80">
+    <div class="form-actions"><button type="submit" class="primary">สร้าง</button><button type="button" class="outline" id="cancel-album">ยกเลิก</button></div>
+  </form>
+</dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="cloud.js"></script>
+</body>
+</html>
