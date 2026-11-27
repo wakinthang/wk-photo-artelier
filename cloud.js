@@ -23,6 +23,88 @@ function start(client) {
   let selected = null;
   let pageVersion = 0;
   let busy = false;
+  let frames = [];
+  let photoCount = 0;
+
+  function updateFrameControls() {
+    const connected = !!byId('frame-select').value;
+    byId('play').disabled = !connected || !photoCount;
+    byId('play-local').disabled = !connected;
+  }
+
+  async function refreshFrames() {
+    const user = sessionId;
+    if (!user) return;
+    const devices = await result(client.from('frames').select('id,name,last_seen_at').order('created_at'));
+    if (sessionId !== user) return;
+    const select = byId('frame-select');
+    if (JSON.stringify(devices.map(({id,name}) => [id,name])) !==
+        JSON.stringify(frames.map(({id,name}) => [id,name]))) {
+      const previous = select.value;
+      select.replaceChildren(...devices.map(frame => new Option(frame.name, frame.id)));
+      if (devices.some(frame => frame.id === previous)) select.value = previous;
+    }
+    frames = devices;
+    updateFrameControls();
+    const device = frames.find(frame => frame.id === select.value);
+    if (!device) {
+      byId('frame-summary').textContent = 'ยังไม่ได้จับคู่';
+      return;
+    }
+    const playback = await result(client.from('frame_playback').select('status,ready_count')
+      .eq('frame_id', device.id).maybeSingle());
+    if (sessionId !== user || select.value !== device.id) return;
+    const online = Date.now() - Date.parse(device.last_seen_at) < 90000;
+    const description = online
+      ? playback?.status === 'playing'
+        ? 'กำลังเล่น' + (playback.ready_count ? ' · ' + playback.ready_count + ' รูป' : '')
+        : playback ? 'กำลังรอ Kano รับอัลบั้ม' : 'ออนไลน์'
+      : 'ออฟไลน์';
+    byId('frame-summary').textContent = device.name + ' · ' + description;
+  }
+
+  async function play(album) {
+    if (busy || !byId('frame-select').value) return;
+    busy = true;
+    try {
+      await result(client.rpc('artelier_play', {target_frame: byId('frame-select').value, target_album: album}));
+      tell('ส่งคำสั่งไป Kano แล้ว');
+      byId('frame-status').textContent = 'ส่งคำสั่งไป Kano แล้ว';
+      await refreshFrames();
+    } catch (error) {
+      tell(error.message);
+      byId('frame-status').textContent = error.message;
+    } finally {
+      busy = false;
+    }
+  }
+
+  byId('pair-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy) return;
+    busy = true;
+    try {
+      const frame = await result(client.rpc('artelier_claim', {
+        pair_code: byId('frame-code').value.trim(), frame_name: byId('frame-name').value.trim()
+      }));
+      byId('frame-code').value = '';
+      byId('frame-status').textContent = 'จับคู่สำเร็จ';
+      await refreshFrames();
+      byId('frame-select').value = frame;
+      await refreshFrames();
+    } catch (error) {
+      byId('frame-status').textContent = error.message;
+    } finally {
+      busy = false;
+    }
+  });
+  byId('frame-select').addEventListener('change', () => {
+    updateFrameControls();
+    refreshFrames().catch(() => {});
+  });
+  byId('play').addEventListener('click', () => { if (selected && photoCount) play(selected.id); });
+  byId('play-local').addEventListener('click', () => play(null));
+  window.setInterval(() => refreshFrames().catch(() => {}), 10000);
 
   async function result(query) {
     const {data, error} = await query;
@@ -40,6 +122,8 @@ function start(client) {
 
   function loadPage() {
     const version = ++pageVersion;
+    photoCount = 0;
+    updateFrameControls();
     byId('home').hidden = !sessionId || !!selected;
     byId('detail').hidden = !sessionId || !selected;
     byId('auth').hidden = !!sessionId;
@@ -57,6 +141,12 @@ function start(client) {
     const userId = session?.user.id || null;
     if (sessionId === userId) return;
     sessionId = userId;
+    frames = [];
+    byId('frame-select').replaceChildren();
+    byId('frame-status').textContent = '';
+    byId('frame-code').value = '';
+    byId('frame-summary').textContent = 'ยังไม่ได้จับคู่';
+    refreshFrames().catch(() => {});
     selected = null;
     for (const id of ['preview', 'device-dialog', 'album-dialog']) byId(id).close();
     loadPage();
@@ -88,6 +178,8 @@ function start(client) {
     if (version !== pageVersion) return;
     const paths = rows.map(row => row.photos?.object_path).filter(Boolean);
     byId('album-count').textContent = paths.length + ' รูป';
+    photoCount = paths.length;
+    updateFrameControls();
     if (!paths.length) return;
     const links = await result(bucket.createSignedUrls(paths, 3600));
     if (version !== pageVersion) return;

@@ -39,7 +39,7 @@ dialog{max-width:min(460px,calc(100% - 24px));width:100%;background:var(--paper)
     <header><h1>Photo Artelier</h1><button class="icon" id="settings" aria-label="ตั้งค่า">⚙</button></header>
     <section class="device" aria-label="สถานะกรอบรูป">
       <span class="frame-icon" aria-hidden="true"></span>
-      <div><strong>Kano ห้องนั่งเล่น</strong><p>ยังไม่ได้จับคู่</p></div>
+      <div><strong>Kano</strong><p id="frame-summary">ยังไม่ได้จับคู่</p></div>
     </section>
     <div class="heading"><h2>อัลบั้ม</h2><button class="outline" id="new-album">สร้างอัลบั้ม</button></div>
     <div id="albums"></div>
@@ -51,13 +51,23 @@ dialog{max-width:min(460px,calc(100% - 24px));width:100%;background:var(--paper)
     
     <div class="actions">
       <button class="outline" id="add">เพิ่มรูป</button>
-      <button class="primary" disabled title="ต้องจับคู่ Kano ก่อน">เล่นบน Kano</button>
+      <button class="primary" id="play" disabled>เล่นบน Kano</button>
     </div>
   </section>
 </main>
 <input id="picker" type="file" accept="image/*" multiple hidden>
 <dialog id="preview"><h2>ดูรูป</h2><img id="photo-open" alt="รูปในอัลบั้ม"><button class="outline" id="close-photo">ปิด</button></dialog>
-<dialog id="device-dialog"><h2>ตั้งค่า</h2><p>ยังไม่ได้จับคู่ Kano</p><button class="outline" id="close-settings">ปิด</button> <button class="outline" id="signout">ออกจากบัญชี</button></dialog>
+<dialog id="device-dialog"><h2>ตั้งค่า</h2><form class="form" id="pair-form">
+  <label for="frame-code">รหัสจับคู่จาก Kano</label>
+  <input id="frame-code" required maxlength="16" pattern="[0-9A-Fa-f]{16}" autocomplete="off" autocapitalize="characters">
+  <label for="frame-name">ชื่อกรอบ</label>
+  <input id="frame-name" required maxlength="80" value="Kano">
+  <button class="primary" type="submit">จับคู่ Kano</button>
+</form>
+<label for="frame-select">กรอบที่จะเล่น</label>
+<select id="frame-select"></select>
+<p id="frame-status" role="status"></p>
+<button class="outline" id="play-local" type="button" disabled>เล่นรูปในเครื่อง Kano</button> <button class="outline" id="close-settings">ปิด</button> <button class="outline" id="signout">ออกจากบัญชี</button></dialog>
 <dialog id="album-dialog">
   <h2>สร้างอัลบั้ม</h2>
   <form id="album-form" class="form">
