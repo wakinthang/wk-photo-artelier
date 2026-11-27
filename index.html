@@ -56,7 +56,15 @@ dialog{max-width:min(460px,calc(100% - 24px));width:100%;background:var(--paper)
   </section>
 </main>
 <input id="picker" type="file" accept="image/*" multiple hidden>
-<dialog id="preview"><h2>ดูรูป</h2><img id="photo-open" alt="รูปในอัลบั้ม"><button class="outline" id="close-photo">ปิด</button></dialog>
+<dialog id="preview">
+  <h2>ดูรูป</h2>
+  <img id="photo-open" alt="รูปในอัลบั้ม">
+  <p id="remove-status" role="status" hidden></p>
+  <div class="form-actions">
+    <button class="outline" id="close-photo" type="button">ปิด</button>
+    <button class="outline" id="remove-photo" type="button">เอาออกจากอัลบั้ม</button>
+  </div>
+</dialog>
 <dialog id="device-dialog"><h2>ตั้งค่า</h2><form class="form" id="pair-form">
   <label for="frame-code">รหัสจับคู่จาก Kano</label>
   <input id="frame-code" required maxlength="16" pattern="[0-9A-Fa-f]{16}" autocomplete="off" autocapitalize="characters">

@@ -21,6 +21,7 @@ function start(client) {
   const bucket = client.storage.from('artelier-photos');
   let sessionId;
   let selected = null;
+  let previewPhoto = null;
   let pageVersion = 0;
   let busy = false;
   let frames = [];
@@ -174,31 +175,38 @@ function start(client) {
     byId('album-title').textContent = album.name;
     byId('album-count').textContent = 'กำลังโหลดรูป';
     byId('photos').replaceChildren();
-    const rows = await result(client.from('album_photos').select('photos(object_path)').eq('album_id', album.id).order('added_at'));
+    const rows = await result(client.from('album_photos').select('photo_id,photos(object_path)').eq('album_id', album.id).order('added_at'));
     if (version !== pageVersion) return;
-    const paths = rows.map(row => row.photos?.object_path).filter(Boolean);
+    const photos = rows.filter(row => row.photos?.object_path);
+    const paths = photos.map(row => row.photos.object_path);
     byId('album-count').textContent = paths.length + ' รูป';
     photoCount = paths.length;
     updateFrameControls();
     if (!paths.length) return;
     const links = await result(bucket.createSignedUrls(paths, 3600));
     if (version !== pageVersion) return;
-    byId('photos').replaceChildren(...links.map((photo, index) => {
+    const linksByPath = new Map(links.map(link => [link.path, link.signedUrl]));
+    byId('photos').replaceChildren(...photos.map((photo, index) => {
+      const url = linksByPath.get(photo.photos.object_path);
       const tile = button('', 'thumbnail');
       tile.setAttribute('aria-label', 'ดูรูปที่ ' + (index + 1));
-      if (!photo.signedUrl) {
-        tile.disabled = true;
+      if (url) {
+        const thumb = document.createElement('img');
+        thumb.src = url;
+        thumb.alt = '';
+        thumb.loading = 'lazy';
+        thumb.style.cssText = 'display:block;width:100%;height:100%;object-fit:cover';
+        tile.append(thumb);
+      } else {
         tile.textContent = 'เปิดรูปไม่ได้';
-        return tile;
       }
-      const thumb = document.createElement('img');
-      thumb.src = photo.signedUrl;
-      thumb.alt = '';
-      thumb.loading = 'lazy';
-      thumb.style.cssText = 'display:block;width:100%;height:100%;object-fit:cover';
-      tile.append(thumb);
       tile.addEventListener('click', () => {
-        byId('photo-open').src = photo.signedUrl;
+        previewPhoto = {albumId: album.id, photoId: photo.photo_id};
+        const image = byId('photo-open');
+        image.hidden = !url;
+        if (url) image.src = url;
+        byId('remove-status').hidden = !!url;
+        byId('remove-status').textContent = url ? '' : 'เปิดรูปไม่ได้';
         byId('preview').showModal();
       });
       return tile;
@@ -234,6 +242,37 @@ function start(client) {
   });
   byId('back').addEventListener('click', () => { selected = null; tell(''); loadPage(); });
   byId('close-photo').addEventListener('click', () => byId('preview').close());
+  byId('preview').addEventListener('close', () => {
+    previewPhoto = null;
+    byId('photo-open').removeAttribute('src');
+  });
+  byId('remove-photo').addEventListener('click', async () => {
+    if (busy || !previewPhoto || !window.confirm('เอารูปนี้ออกจากอัลบั้ม?')) return;
+    const {albumId, photoId} = previewPhoto;
+    const user = sessionId;
+    const remove = byId('remove-photo');
+    busy = true;
+    remove.disabled = true;
+    try {
+      await result(client.from('album_photos').delete()
+        .eq('album_id', albumId).eq('photo_id', photoId));
+      if (sessionId !== user) return;
+      if (byId('preview').open) byId('preview').close();
+      tell('เอารูปออกจากอัลบั้มแล้ว');
+      if (selected?.id === albumId) await loadPage();
+    } catch (error) {
+      if (sessionId !== user) return;
+      if (byId('preview').open) {
+        byId('remove-status').textContent = 'เอารูปออกไม่สำเร็จ · ' + error.message;
+        byId('remove-status').hidden = false;
+      } else {
+        tell(error.message);
+      }
+    } finally {
+      busy = false;
+      remove.disabled = false;
+    }
+  });
   byId('new-album').addEventListener('click', () => byId('album-dialog').showModal());
   byId('cancel-album').addEventListener('click', () => byId('album-dialog').close());
   byId('album-form').addEventListener('submit', async event => {
